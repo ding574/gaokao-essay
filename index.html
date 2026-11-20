@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高考作文训练站</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #fff; --ink: #1b2233; --muted: #6b7286;
+    --line: #e4e7f0; --accent: #1e3a8a; --accent2: #b45309;
+    --ok: #15803d; --warn: #b45309; --err: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 18px 60px; }
+  header h1 { font-size: 24px; margin: 0 0 6px; }
+  header p { margin: 0; color: var(--muted); font-size: 13.5px; }
+  .stats { margin-top: 10px; display: flex; gap: 16px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .stats b { color: var(--accent); }
+  nav { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+  nav button {
+    border: 1px solid var(--line); background: #fff; color: #3c4258;
+    border-radius: 999px; padding: 8px 16px; font-size: 13.5px; cursor: pointer;
+  }
+  nav button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input, textarea, select {
+    padding: 9px 11px; border: 1px solid #d8dbe8; border-radius: 9px;
+    font: inherit; font-size: 14px; background: #fbfbff; color: var(--ink);
+  }
+  input:focus, textarea:focus, select:focus { outline: 2px solid #c7d2fe; border-color: var(--accent); }
+  textarea { width: 100%; resize: vertical; }
+  button.primary { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 9px 16px; font: inherit; font-size: 14px; cursor: pointer; }
+  button.primary:disabled { opacity: .55; cursor: progress; }
+  button.ghost { background: #eef0f8; color: #3c4258; border: 0; border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  button.ghost:disabled { opacity: .5; }
+  .list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .item { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #fdfdff; }
+  .item h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .tag { background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 1px 8px; font-size: 11.5px; }
+  .material { color: #40465c; font-size: 13.5px; line-height: 1.7; margin: 6px 0 10px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hint { color: var(--muted); font-size: 12.5px; }
+  .md { font-size: 14px; line-height: 1.8; }
+  .md h2 { font-size: 17px; margin: 18px 0 8px; color: #1e3a8a; }
+  .md h3 { font-size: 15px; margin: 14px 0 6px; }
+  .md p { margin: 8px 0; }
+  .md ul, .md ol { padding-left: 22px; }
+  .md table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .md th, .md td { border: 1px solid #e3e5f0; padding: 6px 9px; }
+  .md .tbl { overflow-x: auto; }
+  .md blockquote { margin: 10px 0; padding: 10px 14px; border-left: 3px solid #c7d2fe; background: #f8f9ff; color: #454b63; }
+  .chat-box { height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fafaff; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 92%; padding: 9px 12px; border-radius: 12px; font-size: 13.5px; line-height: 1.65; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: #fff; border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.bot .md h2 { font-size: 15px; }
+  .err { color: var(--err); font-size: 13px; }
+  .banner { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; }
+  .hidden { display: none !important; }
+  @media (max-width: 640px) {
+    .wrap { padding: 16px 12px 40px; }
+    header h1 { font-size: 20px; }
+    input, textarea, select { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>高考作文训练站</h1>
+    <p>题库 · 自主命题 · 审题立意 · 素材积累 · 智能批改</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <nav>
+    <button data-tab="bank" class="on">题库</button>
+    <button data-tab="gen">出题</button>
+    <button data-tab="analysis">解析</button>
+    <button data-tab="materials">素材</button>
+    <button data-tab="assistant">助手</button>
+  </nav>
+
+  <!-- 题库 -->
+  <section id="tab-bank">
+    <div class="card">
+      <div class="row">
+        <input id="q" placeholder="搜索题目 / 主题" style="flex:1;min-width:160px">
+        <select id="yearFilter"><option value="">全部年份</option></select>
+        <button class="ghost" id="btnSearch">搜索</button>
+      </div>
+      <p class="hint" style="margin-top:10px">「原文」为逐字原文；「摘要」为要点摘录、原文待核；「本站模拟」为原创模拟题。标准写作要求（选准角度、自拟标题、不少于 800 字等）各题原文中省略。</p>
+    </div>
+    <div class="list" id="promptList"></div>
+  </section>
+
+  <!-- 出题 -->
+  <section id="tab-gen" class="hidden">
+    <div class="card">
+      <div class="row">
+        <select id="direction">
+          <option value="">随机方向（跟随趋势）</option>
+          <option value="科技与人工智能">科技与人工智能</option>
+          <option value="青年与时代责任">青年与时代责任</option>
+          <option value="传统文化与创新">传统文化与创新</option>
+          <option value="生态与发展">生态与发展</option>
+          <option value="社会现象与个人选择">社会现象与个人选择</option>
+          <option value="思辨与价值判断">思辨与价值判断</option>
+        </select>
+        <button class="primary" id="btnGen">生成一道新题</button>
+        <span class="hint" id="genStatus"></span>
+      </div>
+      <p class="hint" style="margin-top:10px">新题会与题库自动查重（相似度 &gt; 0.5 自动重出），生成后存入本地题库文件。</p>
+    </div>
+    <div class="list" id="genList"></div>
+  </section>
+
+  <!-- 解析 -->
+  <section id="tab-analysis" class="hidden">
+    <div class="card">
+      <div class="row">
+        <select id="lens">
+          <option value="">随机分析视角</option>
+          <option value="矛盾追问">矛盾追问</option>
+          <option value="概念辨析">概念辨析</option>
+          <option value="现象归因">现象归因</option>
+          <option value="价值排序">价值排序</option>
+        </select>
+        <button class="primary" id="btnAnalyze">开始解析</button>
+        <span class="hint" id="analysisStatus"></span>
+      </div>
+      <div id="analysisPrompt" style="margin-top:12px"></div>
+    </div>
+    <div class="card hidden" id="analysisResultWrap">
+      <div class="md" id="analysisResult"></div>
+    </div>
+  </section>
+
+  <!-- 素材 -->
+  <section id="tab-materials" class="hidden">
+    <div class="card">
+      <div class="row">
+        <select id="category">
+          <option value="">全部分类</option>
+          <option value="人物">人物</option>
+          <option value="科技">科技</option>
+          <option value="文化">文化</option>
+          <option value="社会">社会</option>
+          <option value="成长">成长</option>
+          <option value="生态">生态</option>
+          <option value="名言">名言</option>
+        </select>
+        <input id="mq" placeholder="搜索素材" style="flex:1;min-width:140px">
+        <button class="ghost" id="btnMsearch">搜索</button>
+        <button class="primary" id="btnMgen">生成 3 条新素材</button>
+      </div>
+    </div>
+    <div class="list" id="materialList"></div>
+  </section>
+
+  <!-- 助手 -->
+  <section id="tab-assistant" class="hidden">
+    <div class="card">
+      <div class="banner" style="margin-bottom:12px">批改作文：把文章粘贴到下面，点「批改」。AI 会给出总评、优点、不足、逐段建议和升格示范。</div>
+      <textarea id="essay" rows="6" placeholder="把你的作文粘贴到这里（至少 50 字）"></textarea>
+      <div class="row" style="margin-top:8px">
+        <input id="essayTitle" placeholder="作文题目（可选）" style="flex:1;min-width:160px">
+        <button class="primary" id="btnReview">批改</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chat-box" id="chatBox"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="chatInput" placeholder="问：这篇材料怎么立意？/ 帮我改个开头" style="flex:1;min-width:180px">
+        <button class="primary" id="btnChat">发送</button>
+      </div>
+    </div>
+  </section>
+
+  <p class="hint" style="margin-top:20px">提示：AI 命题为模拟题，非真题；AI 生成的素材引用前请核实出处。数据保存在服务器 data/generated.json。</p>
+</div>
+
+<script type="module">
+import { mdToHtml } from './md.js';
+
+const $ = (id) => document.getElementById(id);
+const state = { prompts: [], materials: [], current: null };
+
+function esc(s) { return String(s == null ? '' : s); }
+
+async function api(path, opts) {
+  const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
+  const text = await res.text();
+  let data = {};
+  try { data = JSON.parse(text); } catch (e) { data = { error: '返回格式错误' }; }
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
+  ['bank', 'gen', 'analysis', 'materials', 'assistant'].forEach((t) => {
+    $('tab-' + t).classList.toggle('hidden', t !== name);
+  });
+}
+
+document.querySelectorAll('nav button').forEach((b) => {
+  b.addEventListener('click', () => switchTab(b.dataset.tab));
+});
+
+// ── 题库 ──
+async function loadStats() {
+  try {
+    const s = await api('/api/stats');
+    $('stats').innerHTML = `题库 <b>${s.prompts}</b> 题 · 素材 <b>${s.materials}</b> 条 · 覆盖 <b>${s.years}</b> 个年份`;
+  } catch (e) { /* 忽略 */ }
+}
+
+function promptCard(p) {
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.innerHTML = `
+    <h3>${esc(p.title)}</h3>
+    <div class="meta"><span>${esc(p.year)}</span><span>${esc(p.region || '')}</span><span>${esc(p.type || '')}</span><span class="tag">${p.verbatim ? '原文' : (p.sim ? '模拟' : '摘要')}</span></div>
+    <div class="material">${esc(p.material)}</div>
+    <div class="meta">${(p.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+    <div class="actions">
+      <button class="ghost" data-act="analyze">解析这道题</button>
+      <button class="ghost" data-act="copy">复制题目</button>
+    </div>`;
+  div.querySelector('[data-act="analyze"]').addEventListener('click', () => openAnalysis(p));
+  div.querySelector('[data-act="copy"]').addEventListener('click', () => copyText(p.title + '\n\n' + p.material));
+  return div;
+}
+
+async function loadPrompts() {
+  const q = encodeURIComponent($('q').value.trim());
+  const year = encodeURIComponent($('yearFilter').value);
+  const data = await api(`/api/prompts?q=${q}&year=${year}`);
+  state.prompts = data.prompts;
+  const list = $('promptList');
+  list.innerHTML = '';
+  data.prompts.forEach((p) => list.appendChild(promptCard(p)));
+  if (!data.prompts.length) list.innerHTML = '<p class="hint">没有找到，换个关键词试试。</p>';
+}
+
+async function fillYears() {
+  const data = await api('/api/prompts');
+  const years = [...new Set(data.prompts.map((p) => String(p.year)))].sort().reverse();
+  const sel = $('yearFilter');
+  years.forEach((y) => {
+    const o = document.createElement('option');
+    o.value = y;
+    o.textContent = y === 'AI' ? '智能命题' : y + ' 年';
+    sel.appendChild(o);
+  });
+}
+
+// ── 出题 ──
+async function doGenerate() {
+  const btn = $('btnGen');
+  btn.disabled = true;
+  $('genStatus').textContent = '生成中…';
+  try {
+    const data = await api('/api/generate', {
+      method: 'POST',
+      body: JSON.stringify({ direction: $('direction').value, count: 1 }),
+    });
+    const list = $('genList');
+    list.innerHTML = '';
+    data.prompts.forEach((p) => list.appendChild(promptCard(p)));
+    $('genStatus').textContent = `已生成，题库共 ${data.prompts.length} 条新题`;
+    loadStats();
+  } catch (e) {
+    $('genStatus').textContent = '出错：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── 解析 ──
+function openAnalysis(p) {
+  state.current = p;
+  $('analysisPrompt').innerHTML = `
+    <h3 style="margin:0 0 6px">${esc(p.title)}</h3>
+    <div class="meta"><span>${esc(p.year)}</span><span>${esc(p.region || '')}</span><span>${esc(p.type || '')}</span></div>
+    <div class="material">${esc(p.material)}</div>`;
+  $('analysisResultWrap').classList.add('hidden');
+  switchTab('analysis');
+}
+
+async function doAnalyze() {
+  if (!state.current) { $('analysisStatus').textContent = '先从题库或出题里选一道题'; return; }
+  const btn = $('btnAnalyze');
+  btn.disabled = true;
+  $('analysisStatus').textContent = '解析中，约 30–60 秒…';
+  try {
+    const data = await api('/api/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ title: state.current.title, material: state.current.material, lens: $('lens').value }),
+    });
+    $('analysisResult').innerHTML = mdToHtml(data.analysis);
+    $('analysisResultWrap').classList.remove('hidden');
+    $('analysisStatus').textContent = '视角：' + data.lens;
+  } catch (e) {
+    $('analysisStatus').textContent = '出错：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── 素材 ──
+async function loadMaterials() {
+  const q = encodeURIComponent($('mq').value.trim());
+  const cat = encodeURIComponent($('category').value);
+  const data = await api(`/api/materials?q=${q}&category=${cat}`);
+  state.materials = data.materials;
+  const list = $('materialList');
+  list.innerHTML = '';
+  data.materials.forEach((m) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+      <div class="material">${esc(m.text)}</div>
+      ${m.note ? `<p class="hint">核实：${esc(m.note)}</p>` : ''}
+      <div class="actions"><button class="ghost">复制</button></div>`;
+    div.querySelector('button').addEventListener('click', () => copyText(m.text));
+    list.appendChild(div);
+  });
+  if (!data.materials.length) list.innerHTML = '<p class="hint">没有素材，换个分类或关键词。</p>';
+}
+
+async function genMaterials() {
+  const btn = $('btnMgen');
+  btn.disabled = true;
+  btn.textContent = '生成中…';
+  try {
+    await api('/api/materials/generate', {
+      method: 'POST',
+      body: JSON.stringify({ category: $('category').value || '人物' }),
+    });
+    await loadMaterials();
+    loadStats();
+  } catch (e) {
+    alert('生成失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '生成 3 条新素材';
+  }
+}
+
+// ── 助手 ──
+const chatHistory = [];
+
+function addMsg(role, text, isMd) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  if (isMd) div.innerHTML = '<div class="md">' + mdToHtml(text) + '</div>';
+  else div.textContent = text;
+  $('chatBox').appendChild(div);
+  $('chatBox').scrollTop = $('chatBox').scrollHeight;
+  return div;
+}
+
+async function sendChat(text) {
+  addMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  const pending = addMsg('bot', '正在思考…');
+  pending.classList.add('hint');
+  try {
+    const data = await api('/api/chat', { method: 'POST', body: JSON.stringify({ messages: chatHistory.slice(-10) }) });
+    pending.className = 'msg bot';
+    pending.innerHTML = '<div class="md">' + mdToHtml(data.reply) + '</div>';
+    chatHistory.push({ role: 'assistant', content: data.reply });
+  } catch (e) {
+    pending.className = 'msg bot err';
+    pending.textContent = '出错：' + e.message;
+  }
+}
+
+async function doReview() {
+  const essay = $('essay').value.trim();
+  if (essay.length < 50) { alert('文章太短，至少 50 字'); return; }
+  const btn = $('btnReview');
+  btn.disabled = true;
+  const pending = addMsg('bot', '正在批改…');
+  pending.classList.add('hint');
+  try {
+    const data = await api('/api/review', {
+      method: 'POST',
+      body: JSON.stringify({ essay, title: $('essayTitle').value.trim() }),
+    });
+    pending.className = 'msg bot';
+    pending.innerHTML = '<div class="md">' + mdToHtml(data.review) + '</div>';
+    chatHistory.push({ role: 'user', content: '（提交了一篇作文请求批改）' });
+    chatHistory.push({ role: 'assistant', content: data.review });
+  } catch (e) {
+    pending.className = 'msg bot err';
+    pending.textContent = '出错：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* 忽略 */ }
+  document.body.removeChild(ta);
+}
+
+// ── 事件绑定 ──
+$('btnSearch').addEventListener('click', loadPrompts);
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadPrompts(); });
+$('yearFilter').addEventListener('change', loadPrompts);
+$('btnGen').addEventListener('click', doGenerate);
+$('btnAnalyze').addEventListener('click', doAnalyze);
+$('btnMsearch').addEventListener('click', loadMaterials);
+$('mq').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadMaterials(); });
+$('category').addEventListener('change', loadMaterials);
+$('btnMgen').addEventListener('click', genMaterials);
+$('btnChat').addEventListener('click', () => {
+  const v = $('chatInput').value.trim();
+  if (!v) return;
+  $('chatInput').value = '';
+  sendChat(v);
+});
+$('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const v = $('chatInput').value.trim();
+    if (!v) return;
+    $('chatInput').value = '';
+    sendChat(v);
+  }
+});
+$('btnReview').addEventListener('click', doReview);
+
+// ── 启动 ──
+loadStats();
+fillYears().then(loadPrompts);
+loadMaterials();
+addMsg('bot', '你好，我是作文训练助手。可以问我审题、立意、结构、素材、语言升格，也可以把作文粘到上面让我批改。', true);
+</script>
+</body>
+</html>
