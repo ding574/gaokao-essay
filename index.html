@@ -64,6 +64,12 @@
   .err { color: var(--err); font-size: 13px; }
   .banner { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.6; }
   .hidden { display: none !important; }
+  .auth-bar { margin-top: 8px; display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+  .auth-modal { position: fixed; inset: 0; background: rgba(16,24,40,.45); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .auth-box { background: #fff; border-radius: 14px; padding: 22px; width: 320px; max-width: calc(100vw - 40px); display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 60px rgba(16,24,40,.3); }
+  .auth-box h3 { margin: 0 0 4px; font-size: 18px; }
+  .auth-box .row { margin-top: 4px; }
+
   @media (max-width: 640px) {
     .wrap { padding: 16px 12px 40px; }
     header h1 { font-size: 20px; }
@@ -77,6 +83,7 @@
     <h1>高考作文训练站</h1>
     <p>题库 · 自主命题 · 审题立意 · 素材积累 · 智能批改</p>
     <div class="stats" id="stats"></div>
+    <div class="auth-bar" id="authBar"></div>
   </header>
 
   <nav>
@@ -104,19 +111,33 @@
   <section id="tab-gen" class="hidden">
     <div class="card">
       <div class="row">
-        <select id="direction">
-          <option value="">随机方向（跟随趋势）</option>
-          <option value="科技与人工智能">科技与人工智能</option>
-          <option value="青年与时代责任">青年与时代责任</option>
-          <option value="传统文化与创新">传统文化与创新</option>
-          <option value="生态与发展">生态与发展</option>
-          <option value="社会现象与个人选择">社会现象与个人选择</option>
-          <option value="思辨与价值判断">思辨与价值判断</option>
+        <select id="gtype">
+          <option value="">随机题型</option>
+          <option>材料作文</option>
+          <option>任务驱动（书信/演讲稿/倡议书/发言稿）</option>
+          <option>漫画作文</option>
+          <option>命题作文</option>
         </select>
+        <select id="gtheme">
+          <option value="">随机组合（2–3 个维度）</option>
+          <option>科技与人文</option>
+          <option>青年与时代</option>
+          <option>传统与创新</option>
+          <option>生态与发展</option>
+          <option>社会与思辨</option>
+          <option>教育成长</option>
+          <option>文化自信</option>
+          <option>平凡与伟大</option>
+          <option>规则与自由</option>
+          <option>理想与现实</option>
+          <option>自我与他人</option>
+          <option>人类命运共同体</option>
+        </select>
+        <input id="gcustom" placeholder="自定义方向（可选，如：人工智能与人的尊严）" style="flex:1;min-width:180px">
         <button class="primary" id="btnGen">生成一道新题</button>
         <span class="hint" id="genStatus"></span>
       </div>
-      <p class="hint" style="margin-top:10px">新题会与题库自动查重（相似度 &gt; 0.5 自动重出），生成后存入本地题库文件。</p>
+      <p class="hint" style="margin-top:10px">题型和维度都可以随机；新题会与题库自动查重（相似度 &gt; 0.5 自动重出），并存入你自己的题库。</p>
     </div>
     <div class="list" id="genList"></div>
   </section>
@@ -156,9 +177,11 @@
           <option value="生态">生态</option>
           <option value="名言">名言</option>
         </select>
+        <select id="themeFilter"><option value="">全部主题</option></select>
         <input id="mq" placeholder="搜索素材" style="flex:1;min-width:140px">
         <button class="ghost" id="btnMsearch">搜索</button>
-        <button class="primary" id="btnMgen">生成 3 条新素材</button>
+        <button class="primary" id="btnMgen">生成 5 条新素材</button>
+        <button class="ghost" id="btnCollect">从网络采集素材</button>
       </div>
     </div>
     <div class="list" id="materialList"></div>
@@ -170,20 +193,53 @@
       <div class="banner" style="margin-bottom:12px">批改作文：把文章粘贴到下面，点「批改」。AI 会给出总评、优点、不足、逐段建议和升格示范。</div>
       <textarea id="essay" rows="6" placeholder="把你的作文粘贴到这里（至少 50 字）"></textarea>
       <div class="row" style="margin-top:8px">
+        <label class="ghost" for="essayFile" style="cursor:pointer;display:inline-flex;align-items:center;padding:8px 14px;border-radius:10px">📎 上传作文文件</label>
+        <input type="file" id="essayFile" accept=".txt,.md,.markdown" hidden>
         <input id="essayTitle" placeholder="作文题目（可选）" style="flex:1;min-width:160px">
         <button class="primary" id="btnReview">批改</button>
       </div>
     </div>
     <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <select id="agentMode">
+          <option value="chat">对话模式</option>
+          <option value="agent">智能体（自动调工具）</option>
+          <option value="multi">多智能体任务</option>
+        </select>
+        <span class="hint" id="modeHint">直接问答；选「智能体」会自己查素材/题库/联网</span>
+      </div>
       <div class="chat-box" id="chatBox"></div>
       <div class="row" style="margin-top:10px">
         <input id="chatInput" placeholder="问：这篇材料怎么立意？/ 帮我改个开头" style="flex:1;min-width:180px">
         <button class="primary" id="btnChat">发送</button>
       </div>
+      <details style="margin-top:10px">
+        <summary class="hint">长期记忆（记住你的偏好）</summary>
+        <div class="row" style="margin-top:8px">
+          <input id="memTone" placeholder="语气：正式 / 轻松" style="flex:1;min-width:110px">
+          <input id="memLength" placeholder="篇幅：300 字内" style="flex:1;min-width:110px">
+          <input id="memFocus" placeholder="重点：素材 / 结构" style="flex:1;min-width:110px">
+          <button class="ghost" id="btnSaveMem">保存</button>
+        </div>
+      </details>
     </div>
   </section>
 
   <p class="hint" style="margin-top:20px">提示：AI 命题为模拟题，非真题；AI 生成的素材引用前请核实出处。数据保存在服务器 data/generated.json。</p>
+</div>
+
+<div class="auth-modal" id="authModal" hidden>
+  <div class="auth-box">
+    <h3 id="authTitle">登录</h3>
+    <input id="authUser" placeholder="用户名（2–20 位）" autocomplete="username">
+    <input id="authPass" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password">
+    <div class="row">
+      <button class="primary" id="authSubmit">登录</button>
+      <button class="ghost" id="authSwitch">没有账号？注册</button>
+      <button class="ghost" id="authCancel">取消</button>
+    </div>
+    <p class="hint" id="authMsg"></p>
+  </div>
 </div>
 
 <script type="module">
@@ -191,14 +247,36 @@ import { mdToHtml } from './md.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { prompts: [], materials: [], current: null };
+let lastMaterialCount = 0;
+
+async function refreshMaterials() {
+  try {
+    await api('/api/materials/collect', { method: 'POST', body: JSON.stringify({ ifStale: 600 }) });
+  } catch (e) { /* 采集失败不影响浏览 */ }
+  await loadMaterials();
+  loadStats();
+}
 
 function esc(s) { return String(s == null ? '' : s); }
 
+function getToken() {
+  try { return window.localStorage.getItem('zw_token') || ''; } catch (e) { return ''; }
+}
+function setToken(t) {
+  try { t ? window.localStorage.setItem('zw_token', t) : window.localStorage.removeItem('zw_token'); } catch (e) { /* 忽略 */ }
+}
+
 async function api(path, opts) {
-  const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
+  const headers = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) headers.Authorization = 'Bearer ' + token;
+  const res = await fetch(path, Object.assign({}, opts || {}, { headers: Object.assign(headers, (opts && opts.headers) || {}) }));
   const text = await res.text();
   let data = {};
   try { data = JSON.parse(text); } catch (e) { data = { error: '返回格式错误' }; }
+  if (res.status === 401 && !/\/api\/(login|register|me)/.test(path)) {
+    if (typeof showAuth === 'function') showAuth('login');
+  }
   if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
   return data;
 }
@@ -208,6 +286,9 @@ function switchTab(name) {
   ['bank', 'gen', 'analysis', 'materials', 'assistant'].forEach((t) => {
     $('tab-' + t).classList.toggle('hidden', t !== name);
   });
+  if (name === 'materials') {
+    refreshMaterials();
+  }
 }
 
 document.querySelectorAll('nav button').forEach((b) => {
@@ -268,9 +349,11 @@ async function doGenerate() {
   btn.disabled = true;
   $('genStatus').textContent = '生成中…';
   try {
+    const custom = $('gcustom').value.trim();
+    const themes = custom ? [custom] : ($('gtheme').value ? [$('gtheme').value] : []);
     const data = await api('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({ direction: $('direction').value, count: 1 }),
+      body: JSON.stringify({ type: $('gtype').value, themes, count: 1 }),
     });
     const list = $('genList');
     list.innerHTML = '';
@@ -306,6 +389,19 @@ async function doAnalyze() {
       body: JSON.stringify({ title: state.current.title, material: state.current.material, lens: $('lens').value }),
     });
     $('analysisResult').innerHTML = mdToHtml(data.analysis);
+    const mats = data.materials || [];
+    if (mats.length) {
+      const box = document.createElement('div');
+      box.innerHTML =
+        '<h3 style="font-size:14px;margin-top:18px">本次用到的素材</h3>' +
+        mats
+          .map(
+            (m) =>
+              `<div class="item" style="margin-top:8px"><div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div><div class="material">${esc(m.text)}</div></div>`,
+          )
+          .join('');
+      $('analysisResult').appendChild(box);
+    }
     $('analysisResultWrap').classList.remove('hidden');
     $('analysisStatus').textContent = '视角：' + data.lens;
   } catch (e) {
@@ -319,16 +415,19 @@ async function doAnalyze() {
 async function loadMaterials() {
   const q = encodeURIComponent($('mq').value.trim());
   const cat = encodeURIComponent($('category').value);
-  const data = await api(`/api/materials?q=${q}&category=${cat}`);
+  const theme = encodeURIComponent($('themeFilter').value);
+  const data = await api(`/api/materials?q=${q}&category=${cat}&theme=${theme}`);
   state.materials = data.materials;
+  lastMaterialCount = data.total;
   const list = $('materialList');
   list.innerHTML = '';
   data.materials.forEach((m) => {
     const div = document.createElement('div');
     div.className = 'item';
     div.innerHTML = `
-      <div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+      <div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themeGroups || m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}${m.fromWeb ? '<span class="tag">网络</span>' : ''}</div>
       <div class="material">${esc(m.text)}</div>
+      ${m.source ? `<p class="hint">来源：<a href="${esc(m.source)}" target="_blank" rel="noreferrer">${esc(m.source.slice(0, 60))}</a></p>` : ''}
       ${m.note ? `<p class="hint">核实：${esc(m.note)}</p>` : ''}
       <div class="actions"><button class="ghost">复制</button></div>`;
     div.querySelector('button').addEventListener('click', () => copyText(m.text));
@@ -352,12 +451,77 @@ async function genMaterials() {
     alert('生成失败：' + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = '生成 3 条新素材';
+    btn.textContent = '生成 5 条新素材';
   }
 }
 
 // ── 助手 ──
 const chatHistory = [];
+let agentMode = 'chat';
+
+function renderSteps(container, steps) {
+  if (!steps || !steps.length) return;
+  const d = document.createElement('details');
+  d.className = 'task-steps';
+  const s = document.createElement('summary');
+  s.textContent = '查看执行过程（' + steps.length + ' 步）';
+  d.appendChild(s);
+  steps.forEach((st, i) => {
+    const box = document.createElement('div');
+    box.className = 'step';
+    const head = document.createElement('strong');
+    head.textContent = (i + 1) + '. ' + (st.tool || st.label || '步骤');
+    const body = document.createElement('div');
+    body.className = 'hint';
+    body.textContent = st.result || st.text || '';
+    box.appendChild(head);
+    box.appendChild(body);
+    d.appendChild(box);
+  });
+  container.appendChild(d);
+}
+
+async function sendAgent(text) {
+  addMsg('user', text);
+  const pending = addMsg('bot', '🧠 智能体正在思考并调用工具…');
+  try {
+    const data = await api('/api/agent', {
+      method: 'POST',
+      body: JSON.stringify({ messages: chatHistory.concat([{ role: 'user', content: text }]).slice(-8) }),
+    });
+    pending.className = 'msg bot';
+    pending.innerHTML = '<div class="md">' + mdToHtml(data.answer) + '</div>';
+    renderSteps(pending, data.steps);
+    chatHistory.push({ role: 'user', content: text });
+    chatHistory.push({ role: 'assistant', content: data.answer });
+  } catch (e) {
+    pending.className = 'msg bot err';
+    pending.textContent = '出错：' + e.message;
+  }
+}
+
+async function sendMulti(text) {
+  addMsg('user', text);
+  const pending = addMsg('bot', '🤖 多智能体：规划 → 执行 → 审查 → 修订…（约 1–2 分钟）');
+  try {
+    const data = await api('/api/multiagent', { method: 'POST', body: JSON.stringify({ goal: text }) });
+    pending.className = 'msg bot';
+    pending.innerHTML = '<div class="md">' + mdToHtml(data.final) + '</div>';
+    if (data.critic) {
+      const c = document.createElement('p');
+      c.className = 'hint';
+      const issues = Array.isArray(data.critic.issues) && data.critic.issues.length ? '；问题：' + data.critic.issues.join('；') : '';
+      c.textContent = '审查得分：' + (data.critic.score == null ? '-' : data.critic.score) + issues;
+      pending.appendChild(c);
+    }
+    renderSteps(pending, data.steps);
+    chatHistory.push({ role: 'user', content: text });
+    chatHistory.push({ role: 'assistant', content: data.final });
+  } catch (e) {
+    pending.className = 'msg bot err';
+    pending.textContent = '出错：' + e.message;
+  }
+}
 
 function addMsg(role, text, isMd) {
   const div = document.createElement('div');
@@ -370,6 +534,8 @@ function addMsg(role, text, isMd) {
 }
 
 async function sendChat(text) {
+  if (agentMode === 'agent') { return sendAgent(text); }
+  if (agentMode === 'multi') { return sendMulti(text); }
   addMsg('user', text);
   chatHistory.push({ role: 'user', content: text });
   const pending = addMsg('bot', '正在思考…');
@@ -436,8 +602,39 @@ $('btnGen').addEventListener('click', doGenerate);
 $('btnAnalyze').addEventListener('click', doAnalyze);
 $('btnMsearch').addEventListener('click', loadMaterials);
 $('mq').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadMaterials(); });
+async function loadThemes() {
+  try {
+    const data = await api('/api/themes');
+    const sel = $('themeFilter');
+    data.themes.forEach((t) => {
+      const o = document.createElement('option');
+      o.value = t.theme;
+      o.textContent = t.theme + '（' + t.count + '）';
+      sel.appendChild(o);
+    });
+  } catch (e) { /* 忽略 */ }
+}
+
 $('category').addEventListener('change', loadMaterials);
+$('themeFilter').addEventListener('change', loadMaterials);
 $('btnMgen').addEventListener('click', genMaterials);
+$('btnCollect').addEventListener('click', async () => {
+  const btn = $('btnCollect');
+  btn.disabled = true;
+  btn.textContent = '采集中…';
+  try {
+    const data = await api('/api/materials/collect', { method: 'POST', body: JSON.stringify({ manual: true }) });
+    await loadMaterials();
+    loadStats();
+    if (data.message) alert(data.message);
+    else alert('采集完成，新增 ' + (data.materials ? data.materials.length : 0) + ' 条');
+  } catch (e) {
+    alert('采集失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '从网络采集素材';
+  }
+});
 $('btnChat').addEventListener('click', () => {
   const v = $('chatInput').value.trim();
   if (!v) return;
@@ -454,11 +651,157 @@ $('chatInput').addEventListener('keydown', (e) => {
 });
 $('btnReview').addEventListener('click', doReview);
 
+$('agentMode').addEventListener('change', () => {
+  agentMode = $('agentMode').value;
+  const hints = {
+    chat: '直接问答',
+    agent: '智能体会自己查素材/题库/联网，再回答',
+    multi: '多智能体：规划→执行→审查→修订，约 1–2 分钟',
+  };
+  $('modeHint').textContent = hints[agentMode] || '';
+});
+
+$('btnSaveMem').addEventListener('click', async () => {
+  try {
+    await api('/api/memory', {
+      method: 'POST',
+      body: JSON.stringify({ prefs: { tone: $('memTone').value, length: $('memLength').value, focus: $('memFocus').value } }),
+    });
+    alert('已记住，之后的回答会参考这些偏好');
+  } catch (e) {
+    alert('保存失败：' + e.message);
+  }
+});
+
+let currentUser = '';
+let authMode = 'login';
+
+function renderAuth() {
+  const bar = $('authBar');
+  bar.innerHTML = '';
+  if (currentUser) {
+    const span = document.createElement('span');
+    span.innerHTML = '已登录：<b>' + esc(currentUser) + '</b>（数据独立，互不影响）';
+    bar.appendChild(span);
+    const out = document.createElement('button');
+    out.className = 'ghost';
+    out.textContent = '退出';
+    out.addEventListener('click', () => {
+      setToken('');
+      currentUser = '';
+      renderAuth();
+      location.reload();
+    });
+    bar.appendChild(out);
+  } else {
+    const span = document.createElement('span');
+    span.textContent = '未登录：题库、素材可浏览；AI 功能需要登录';
+    bar.appendChild(span);
+    const login = document.createElement('button');
+    login.className = 'primary';
+    login.textContent = '登录 / 注册';
+    login.addEventListener('click', () => showAuth('login'));
+    bar.appendChild(login);
+  }
+}
+
+function showAuth(mode) {
+  authMode = mode === 'register' ? 'register' : 'login';
+  $('authTitle').textContent = authMode === 'login' ? '登录' : '注册';
+  $('authSwitch').textContent = authMode === 'login' ? '没有账号？注册' : '已有账号？登录';
+  $('authMsg').textContent = '';
+  $('authModal').hidden = false;
+  $('authUser').focus();
+}
+
+function loadMemory() {
+  api('/api/memory')
+    .then((m) => {
+      if (!m.prefs) return;
+      $('memTone').value = m.prefs.tone || '';
+      $('memLength').value = m.prefs.length || '';
+      $('memFocus').value = m.prefs.focus || '';
+    })
+    .catch(() => {});
+}
+
+async function checkAuth() {
+  try {
+    const data = await api('/api/me');
+    currentUser = data.user || '';
+  } catch (e) {
+    currentUser = '';
+  }
+  renderAuth();
+  if (currentUser) loadMemory();
+}
+
+$('authSubmit').addEventListener('click', async () => {
+  const user = $('authUser').value.trim();
+  const pass = $('authPass').value;
+  const path = authMode === 'login' ? '/api/login' : '/api/register';
+  try {
+    const data = await api(path, { method: 'POST', body: JSON.stringify({ user, pass }) });
+    setToken(data.token);
+    currentUser = data.user;
+    $('authModal').hidden = true;
+    location.reload();
+  } catch (e) {
+    $('authMsg').textContent = e.message;
+  }
+});
+
+$('authSwitch').addEventListener('click', () => showAuth(authMode === 'login' ? 'register' : 'login'));
+$('authCancel').addEventListener('click', () => { $('authModal').hidden = true; });
+
+// 上传作文文件（txt / md），读入文本框
+$('essayFile').addEventListener('change', () => {
+  const file = $('essayFile').files[0];
+  if (!file) return;
+  if (file.size > 200 * 1024) { alert('文件太大（上限 200KB）'); return; }
+  if (!/\.(txt|md|markdown)$/i.test(file.name)) { alert('目前支持 txt / md 文件'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('essay').value = String(reader.result).slice(0, 6000);
+    $('essayTitle').value = file.name.replace(/\.[^.]+$/, '');
+  };
+  reader.onerror = () => alert('读取失败');
+  reader.readAsText(file);
+});
+
+// 拖拽文件到作文框
+const essayBox = $('essay');
+essayBox.addEventListener('dragover', (e) => { e.preventDefault(); essayBox.style.borderColor = '#1e3a8a'; });
+essayBox.addEventListener('dragleave', () => { essayBox.style.borderColor = ''; });
+essayBox.addEventListener('drop', (e) => {
+  e.preventDefault();
+  essayBox.style.borderColor = '';
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { essayBox.value = String(reader.result).slice(0, 6000); };
+  reader.readAsText(file);
+});
+
 // ── 启动 ──
 loadStats();
 fillYears().then(loadPrompts);
 loadMaterials();
-addMsg('bot', '你好，我是作文训练助手。可以问我审题、立意、结构、素材、语言升格，也可以把作文粘到上面让我批改。', true);
+loadThemes();
+checkAuth();
+addMsg('bot', '你好，我是作文训练助手。登录后可问审题、立意、结构、素材、语言升格，也可以把作文粘到上面让我批改。', true);
+
+// 每分钟检查素材是否有更新
+setInterval(async () => {
+  try {
+    const s = await api('/api/stats');
+    if (s.materials !== lastMaterialCount) {
+      lastMaterialCount = s.materials;
+      loadStats();
+      if (!$('tab-materials').classList.contains('hidden')) loadMaterials();
+    }
+  } catch (e) { /* 忽略 */ }
+}, 60000);
 </script>
 </body>
 </html>
