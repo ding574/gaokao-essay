@@ -11,6 +11,7 @@
     --ok: #15803d; --warn: #b45309; --err: #b91c1c;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -238,7 +239,8 @@
       <button class="ghost" id="authSwitch">没有账号？注册</button>
       <button class="ghost" id="authCancel">取消</button>
     </div>
-    <p class="hint" id="authMsg"></p>
+    <p class="hint">登录一次，90 天内免登录（每次访问自动续期）；忘记密码请联系管理员</p>
+    <p class="hint" id="authMsg" style="color:#b91c1c"></p>
   </div>
 </div>
 
@@ -683,6 +685,26 @@ function renderAuth() {
     const span = document.createElement('span');
     span.innerHTML = '已登录：<b>' + esc(currentUser) + '</b>（数据独立，互不影响）';
     bar.appendChild(span);
+
+    const pwd = document.createElement('button');
+    pwd.className = 'ghost';
+    pwd.textContent = '修改密码';
+    pwd.addEventListener('click', async () => {
+      const oldPass = prompt('请输入原密码');
+      if (!oldPass) return;
+      const newPass = prompt('请输入新密码（至少 6 位）');
+      if (!newPass) return;
+      try {
+        await api('/api/password', { method: 'POST', body: JSON.stringify({ old: oldPass, new: newPass }) });
+        alert('密码已修改，请用新密码重新登录');
+        setToken('');
+        location.reload();
+      } catch (e) {
+        alert('修改失败：' + e.message);
+      }
+    });
+    bar.appendChild(pwd);
+
     const out = document.createElement('button');
     out.className = 'ghost';
     out.textContent = '退出';
@@ -710,6 +732,10 @@ function showAuth(mode) {
   $('authTitle').textContent = authMode === 'login' ? '登录' : '注册';
   $('authSwitch').textContent = authMode === 'login' ? '没有账号？注册' : '已有账号？登录';
   $('authMsg').textContent = '';
+  try {
+    const last = window.localStorage.getItem('zw_user');
+    if (last && !$('authUser').value) $('authUser').value = last;
+  } catch (e) { /* 忽略 */ }
   $('authModal').hidden = false;
   $('authUser').focus();
 }
@@ -729,8 +755,14 @@ async function checkAuth() {
   try {
     const data = await api('/api/me');
     currentUser = data.user || '';
+    if (currentUser) {
+      // 每次访问自动续期，常用就不会掉线
+      const r = await api('/api/refresh', { method: 'POST' });
+      if (r && r.token) setToken(r.token);
+    }
   } catch (e) {
     currentUser = '';
+    setToken('');
   }
   renderAuth();
   if (currentUser) loadMemory();
@@ -740,19 +772,35 @@ $('authSubmit').addEventListener('click', async () => {
   const user = $('authUser').value.trim();
   const pass = $('authPass').value;
   const path = authMode === 'login' ? '/api/login' : '/api/register';
+  const btn = $('authSubmit');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = '处理中…';
+  $('authMsg').textContent = '';
   try {
     const data = await api(path, { method: 'POST', body: JSON.stringify({ user, pass }) });
     setToken(data.token);
+    try { window.localStorage.setItem('zw_user', data.user); } catch (e) { /* 忽略 */ }
     currentUser = data.user;
     $('authModal').hidden = true;
     location.reload();
   } catch (e) {
     $('authMsg').textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = oldText;
   }
 });
 
 $('authSwitch').addEventListener('click', () => showAuth(authMode === 'login' ? 'register' : 'login'));
 $('authCancel').addEventListener('click', () => { $('authModal').hidden = true; });
+
+$('authPass').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    $('authSubmit').click();
+  }
+});
 
 // 上传作文文件（txt / md），读入文本框
 $('essayFile').addEventListener('change', () => {

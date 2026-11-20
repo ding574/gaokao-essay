@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 import { PROMPTS } from './prompts.mjs';
 import { VERBATIM_EXTRA } from './verbatim-extra.mjs';
 import { MATERIALS } from './materials.mjs';
-import { MATERIALS_EXTRA } from './materials-extra.mjs';
 
 const EXTRA = Object.fromEntries(VERBATIM_EXTRA.map((p) => [p.id, p]));
 const PROMPTS_ALL = PROMPTS.map((p) => (EXTRA[p.id] ? { ...p, ...EXTRA[p.id] } : p));
@@ -22,6 +21,7 @@ const API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const BASE_URL = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/+$/, '');
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const ACCESS_CODE = process.env.ACCESS_CODE || '';
+const SESSION_DAYS = Math.max(1, Number(process.env.SESSION_DAYS || 90));
 const RATE_LIMIT = Number(process.env.RATE_LIMIT || 30);
 const AUTO_MINUTES = Math.max(5, Number(process.env.AUTO_COLLECT_MINUTES || 30));
 const CALL_TIMEOUT = 240_000;
@@ -186,6 +186,7 @@ function maxSimilarity(title, list) {
 
 // ── 访问控制与限流 ────────────────────────────────────────────
 const rateState = new Map();
+const loginLimit = new Map();
 
 function clientIp(req) {
   const forward = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -651,7 +652,7 @@ function themeGroupsOf(material) {
 
 // ── 素材库 ────────────────────────────────────────────────────
 function allMaterials() {
-  return [...MATERIALS, ...MATERIALS_EXTRA, ...storeFor(currentUser()).materials];
+  return [...MATERIALS, ...storeFor(currentUser()).materials];
 }
 
 // 按题目/文章内容匹配素材（主题命中加权 + 关键词命中）
@@ -873,7 +874,7 @@ function hashPass(pass, salt) {
   return crypto.scryptSync(String(pass), salt, 64).toString('hex');
 }
 function signToken(user) {
-  const body = Buffer.from(JSON.stringify({ u: user, exp: Date.now() + 30 * 24 * 3600 * 1000 })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ u: user, exp: Date.now() + SESSION_DAYS * 24 * 3600 * 1000 })).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(body).digest('base64url');
   return body + '.' + sig;
 }
@@ -1228,17 +1229,57 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/login') {
       let body = {};
       try { body = JSON.parse((await readBody(req)).replace(/^\uFEFF/, '')); } catch { return json(res, 400, { error: '请求格式不对' }); }
+      const ip = clientIp(req);
+      const now = Date.now();
+      const lim = loginLimit.get(ip) || { count: 0, resetAt: now + 10 * 60 * 1000 };
+      if (now > lim.resetAt) { lim.count = 0; lim.resetAt = now + 10 * 60 * 1000; }
+      if (lim.count >= 10) return json(res, 429, { error: '尝试次数太多，10 分钟后再试' });
+      lim.count += 1;
+      loginLimit.set(ip, lim);
+
       const user = String(body.user || '').trim();
       const pass = String(body.pass || '');
       const found = loadUsers().find((u) => u.user === user);
-      if (!found || !crypto.timingSafeEqual(Buffer.from(hashPass(pass, found.salt), 'hex'), Buffer.from(found.hash, 'hex'))) {
-        return json(res, 401, { error: '用户名或密码不对' });
+      let ok = false;
+      if (found) {
+        try {
+          const h = hashPass(pass, found.salt);
+          ok = h.length === found.hash.length && crypto.timingSafeEqual(Buffer.from(h, 'hex'), Buffer.from(found.hash, 'hex'));
+        } catch { ok = false; }
       }
+      if (!ok) return json(res, 401, { error: '用户名或密码不对' });
       return json(res, 200, { token: signToken(user), user });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/password') {
+      const user = requireUser(req, res);
+      if (!user) return;
+      let body = {};
+      try { body = JSON.parse((await readBody(req)).replace(/^\uFEFF/, '')); } catch { return json(res, 400, { error: '请求格式不对' }); }
+      const oldPass = String(body.old || '');
+      const newPass = String(body.new || '');
+      if (newPass.length < 6) return json(res, 400, { error: '新密码至少 6 位' });
+      const users = loadUsers();
+      const idx = users.findIndex((u) => u.user === user);
+      if (idx < 0) return json(res, 404, { error: '用户不存在' });
+      let ok = false;
+      try {
+        const h = hashPass(oldPass, users[idx].salt);
+        ok = h.length === users[idx].hash.length && crypto.timingSafeEqual(Buffer.from(h, 'hex'), Buffer.from(users[idx].hash, 'hex'));
+      } catch { ok = false; }
+      if (!ok) return json(res, 401, { error: '原密码不对' });
+      users[idx].salt = crypto.randomBytes(16).toString('hex');
+      users[idx].hash = hashPass(newPass, users[idx].salt);
+      saveUsers(users);
+      return json(res, 200, { ok: true });
     }
     if (req.method === 'GET' && url.pathname === '/api/me') {
       const user = authUser(req);
       return user ? json(res, 200, { user }) : json(res, 401, { error: '未登录' });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/refresh') {
+      const user = authUser(req);
+      if (!user) return json(res, 401, { error: '未登录' });
+      return json(res, 200, { token: signToken(user), user });
     }
     if (req.method === 'POST' && url.pathname === '/api/generate') {
       if (!requireUser(req, res)) return;
