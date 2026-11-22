@@ -1299,7 +1299,7 @@ const server = http.createServer(async (req, res) => {
         baseMaterials: base,
         mineCount: Math.max(0, list.length - base),
         legacyCount: Math.max(0, raw.length - list.length),
-        years: [...new Set(allPrompts().map((p) => p.year))].length,
+        years: [...new Set(allPrompts().map((p) => String(p.year)))].filter((y) => /^\d{4}$/.test(y)).length,
       });
     }
     if (req.method === 'GET' && url.pathname === '/api/prompts') return handlePrompts(url, res);
