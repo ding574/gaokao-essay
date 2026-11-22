@@ -429,7 +429,9 @@ async function loadMaterials() {
     div.innerHTML = `
       <div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themeGroups || m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}${m.fromWeb ? '<span class="tag">网络</span>' : ''}</div>
       <div class="material">${esc(m.text)}</div>
-      ${m.source ? `<p class="hint">来源：<a href="${esc(m.source)}" target="_blank" rel="noreferrer">${esc(m.source.slice(0, 60))}</a></p>` : ''}
+      ${m.source ? ( /^https?:\/\//.test(m.source)
+        ? `<p class="hint">来源：<a href="${esc(m.source)}" target="_blank" rel="noreferrer">${esc(m.source.slice(0, 60))}</a></p>`
+        : `<p class="hint">出处：${esc(m.source)}</p>` ) : ''}
       ${m.note ? `<p class="hint">核实：${esc(m.note)}</p>` : ''}
       <div class="actions"><button class="ghost">复制</button></div>`;
     div.querySelector('button').addEventListener('click', () => copyText(m.text));
@@ -443,12 +445,14 @@ async function genMaterials() {
   btn.disabled = true;
   btn.textContent = '生成中…';
   try {
-    await api('/api/materials/generate', {
+    const data = await api('/api/materials/generate', {
       method: 'POST',
       body: JSON.stringify({ category: $('category').value || '人物' }),
     });
     await loadMaterials();
     loadStats();
+    const n = data.materials ? data.materials.length : 0;
+    if (!n) alert('这次生成的素材太短，已被过滤（要求 3–5 句），请再点一次');
   } catch (e) {
     alert('生成失败：' + e.message);
   } finally {
@@ -829,6 +833,40 @@ essayBox.addEventListener('drop', (e) => {
   const reader = new FileReader();
   reader.onload = () => { essayBox.value = String(reader.result).slice(0, 6000); };
   reader.readAsText(file);
+});
+
+// ── 自动更新检测（不用换网址，刷新即得新版）──
+let appVersion = 0;
+let updateShown = false;
+
+function showUpdateBar() {
+  if (updateShown) return;
+  updateShown = true;
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:200;background:#111827;color:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:14px';
+  bar.innerHTML = '<span style="flex:1">网站已更新，刷新即可用新版</span>';
+  const btn = document.createElement('button');
+  btn.textContent = '立即刷新';
+  btn.style.cssText = 'background:#22c55e;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer';
+  btn.addEventListener('click', () => location.reload());
+  bar.appendChild(btn);
+  document.body.appendChild(bar);
+}
+
+async function checkVersion(initial) {
+  try {
+    const res = await fetch('/api/version', { cache: 'no-store' });
+    const d = await res.json();
+    if (!d || !d.v) return;
+    if (initial || !appVersion) { appVersion = d.v; return; }
+    if (d.v !== appVersion) showUpdateBar();
+  } catch (e) { /* 网络问题忽略 */ }
+}
+
+checkVersion(true);
+setInterval(() => checkVersion(false), 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkVersion(false);
 });
 
 // ── 启动 ──

@@ -369,7 +369,7 @@ async function handleAnalyze(req, res) {
   if (!material && !title) return json(res, 400, { error: '缺少题目内容' });
   const lens = LENSES.includes(body.lens) ? body.lens : LENSES[Math.floor(Math.random() * LENSES.length)];
   const candidates = pickMaterials(title + '\n' + material, 8);
-  const poolText = candidates.map((m, i) => `${i + 1}. [${m.category}] ${m.text}`).join('\n');
+  const poolText = candidates.map((m, i) => `${i + 1}. [${m.category}] ${m.text}${m.source ? `（出处：${m.source}）` : ''}`).join('\n');
 
   if (!API_KEY) {
     return json(res, 200, { lens, analysis: demoAnalysis(title || '示例题目', material, lens), materials: candidates.slice(0, 6) });
@@ -414,7 +414,8 @@ async function handleAnalyze(req, res) {
 每部分写出“这一段要写的核心句”。
 
 ## 五、素材（从下面素材池中选 4–6 条）
-每条写：素材 + 用在哪一段 + 扣哪个分论点 + 一句话点题。
+每条写：素材（保留关键细节：人名、数字、场景、原话）+ 用在哪一段 + 扣哪个分论点 + 一句话点题。
+引用素材时不得压缩成一句口号，至少保留两个具体细节。
 只能用池中素材，不得编造。
 
 ## 六、高考评分对照
@@ -516,14 +517,15 @@ async function collectFromQuery(query) {
       { role: 'system', content: '你是作文素材编辑。只输出 JSON 数组，不要解释。' },
       {
         role: 'user',
-        content: `下面是关于「${query}」的公开搜索结果。请提炼 3 条适合高中议论文使用的素材。
+        content: `下面是关于「${query}」的公开搜索结果。请改写成 3 条适合高中议论文使用的详细素材。
 
 要求：
 1. 只使用搜索结果里出现的事实，不要编造；
-2. 每条 40–80 字，写清“谁/哪个机构 + 做了什么”；
-3. 标注分类（人物/科技/文化/社会/成长/生态）与 2–3 个主题；
-4. 每条带上对应来源链接（从上面选）；
-5. 输出 JSON 数组：[{"text":"素材","category":"分类","themes":["主题"],"source":"链接","note":"需要核实的点（没有则空）"}]
+2. 每条 120–220 字、3–5 句，写清：时间/地点、人物或机构、具体做了什么（细节、数字、对话、场景）、结果与影响；
+3. 禁止一句话概括，要有可引用的现场细节；
+4. 标注分类（人物/科技/文化/社会/成长/生态）与 2–3 个主题；
+5. source 填该条对应的来源链接（从上面选）；
+6. 输出 JSON 数组：[{"text":"素材正文","category":"分类","themes":["主题"],"source":"链接","note":"需要核实的点（没有则空）"}]
 
 搜索结果：
 ${digest}`,
@@ -537,7 +539,7 @@ ${digest}`,
   if (!match) return [];
   let arr = [];
   try { arr = JSON.parse(match[0]); } catch { return []; }
-  return arr.slice(0, 3).filter((x) => x && x.text);
+  return arr.slice(0, 3).filter((x) => x && x.text && String(x.text).length >= 60);
 }
 
 async function collectMaterials(queries) {
@@ -546,7 +548,7 @@ async function collectMaterials(queries) {
     try {
       const items = await collectFromQuery(query);
       for (const item of items) {
-        const text = String(item.text).slice(0, 300);
+        const text = String(item.text).slice(0, 400);
         const dup = allMaterials().some((m) => similarity(m.text, text) > 0.6);
         if (dup) continue;
         added.push({
@@ -601,6 +603,13 @@ async function handleCollect(req, res) {
   if (!API_KEY) return json(res, 200, { materials: [], message: '演示模式：配置密钥后可联网采集' });
   try {
     const added = await collectMaterials(queries);
+    if (!added.length) {
+      return json(res, 200, {
+        materials: [],
+        queries,
+        message: '这次没采到足够详细的素材（已过滤一句话素材），可以再点一次或换个主题',
+      });
+    }
     return json(res, 200, { materials: added, queries });
   } catch (err) {
     console.error('[collect]', err);
@@ -675,7 +684,8 @@ function handleMaterials(url, res) {
   const q = (url.searchParams.get('q') || '').trim();
   const category = (url.searchParams.get('category') || '').trim();
   const theme = (url.searchParams.get('theme') || '').trim();
-  let list = allMaterials();
+  // 隐藏历史遗留的一句话素材（长度 < 60 字）
+  let list = allMaterials().filter((m) => String(m.text || '').length >= 60);
   if (category) list = list.filter((m) => m.category === category);
   if (theme) list = list.filter((m) => themeGroupsOf(m).includes(theme));
   if (q) list = list.filter((m) => (m.text + (m.themes || []).join('')).includes(q));
@@ -706,10 +716,11 @@ async function handleMaterialGenerate(req, res) {
           content: `请生成 5 条「${category}」类作文素材，用于高考议论文。
 
 要求：
-1. 真实可考：人物、事件、名言必须是真实存在的，不确定的不要写；
-2. 每条 40–80 字，说明“谁做了什么/说了什么”，不写空泛评价；
-3. 标注适用主题 2–3 个；
-4. 输出 JSON 数组：[{"text":"素材内容","themes":["主题"],"note":"需要核实的点（没有则空字符串）"}]
+1. 真实可考：人物、事件、名言必须真实存在，不确定的不要写；每条附"出处"（典籍名/媒体报道/可检索关键词），没把握就写“关键词：……”，供使用者核实；
+2. 每条 120–220 字、3–5 句，必须包含：时间或背景、具体动作或细节（数字、地点、对话、场景）、结果或影响、一句可迁移的意义；
+3. 禁止只写一句概括，禁止空泛评价；
+4. 标注适用主题 2–3 个；
+5. 输出 JSON 数组：[{"text":"素材正文","themes":["主题"],"source":"出处","note":"需要核实的点（没有则空字符串）"}]
 
 避免与常见素材重复（袁隆平、张桂梅、苏轼除外最多各一条）。`,
         },
@@ -721,12 +732,13 @@ async function handleMaterialGenerate(req, res) {
     if (!match) throw new Error('模型输出格式不对');
     const arr = JSON.parse(match[0]).slice(0, 3);
     const added = arr
-      .filter((x) => x && x.text)
+      .filter((x) => x && x.text && String(x.text).length >= 60)
       .map((x, i) => ({
         id: 'ai-m-' + Date.now() + '-' + i,
         category,
-        text: String(x.text).slice(0, 200),
+        text: String(x.text).slice(0, 400),
         themes: Array.isArray(x.themes) ? x.themes.slice(0, 4).map((t) => String(t).slice(0, 12)) : [],
+        source: String(x.source || '').slice(0, 120),
         note: String(x.note || '').slice(0, 100),
         ai: true,
         createdAt: new Date().toISOString(),
@@ -751,7 +763,7 @@ async function handleReview(req, res) {
   if (!API_KEY) {
     const extra = pickMaterials(title + '\n' + essay, 4);
     const extraText = extra.length
-      ? '\n\n## 可补充的素材\n' + extra.map((m, i) => `${i + 1}. [${m.category}] ${m.text}`).join('\n')
+      ? '\n\n## 可补充的素材\n' + extra.map((m, i) => `${i + 1}. [${m.category}] ${m.text}${m.source ? `（出处：${m.source}）` : ''}`).join('\n')
       : '';
     return json(res, 200, {
       review: '> 演示模式：配置密钥后这里会给出逐段批改。\n\n## 优点\n- 结构完整\n\n## 不足\n- 论点与材料结合不够\n\n## 修改建议\n- 第二段补一个具体例子' + extraText,
@@ -794,7 +806,8 @@ ${essay}
 挑一个最弱的分论点，重写一段（150 字内），示范如何扣材料、如何论证。
 
 ## 七、可补充的素材
-4 条，每条写：素材 + 放哪一段 + 怎么扣题。
+4 条，每条 80–150 字，必须含具体细节（人名、数字、场景、原话）与出处；写清放哪一段、怎么扣题。
+不得只写一句概括或空泛评价。
 
 要求：严格、具体，不写“语言优美”这类空话；不编造原文没有的内容；注意文体与格式是否正确。`,
         },
@@ -804,7 +817,7 @@ ${essay}
     );
     const extra = pickMaterials(title + '\n' + essay, 4);
     const extraText = extra.length
-      ? '\n\n## 可补充的素材\n' + extra.map((m, i) => `${i + 1}. [${m.category}] ${m.text}`).join('\n')
+      ? '\n\n## 可补充的素材\n' + extra.map((m, i) => `${i + 1}. [${m.category}] ${m.text}${m.source ? `（出处：${m.source}）` : ''}`).join('\n')
       : '';
     return json(res, 200, { review: review.trim() + extraText, materials: extra });
   } catch (err) {
@@ -951,7 +964,7 @@ const TOOLS = {
       let list = allMaterials();
       if (a.theme) list = list.filter((m) => themeGroupsOf(m).includes(a.theme) || (m.themes || []).includes(a.theme));
       if (a.q) list = list.filter((m) => m.text.includes(String(a.q)));
-      return list.slice(0, Number(a.limit) || 6).map((m) => `[${m.category}] ${m.text}`).join('\n') || '没有匹配素材';
+      return list.slice(0, Number(a.limit) || 6).map((m) => `[${m.category}] ${m.text}${m.source ? `（出处：${m.source}）` : ''}`).join('\n') || '没有匹配素材';
     },
   },
   get_prompts: {
@@ -1175,11 +1188,22 @@ async function serveStatic(res, relPath) {
     const data = await fs.promises.readFile(file);
     const ext = path.extname(file);
     const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
-    res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    // HTML 不缓存，保证刷新即得新版；脚本缓存但每次校验
+    const cache = ext === '.html' ? 'no-store, must-revalidate' : 'no-cache';
+    res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream', 'Cache-Control': cache });
     res.end(data);
   } catch {
     json(res, 404, { error: '文件不存在' });
   }
+}
+
+// 版本号 = 关键文件的最新修改时间，用于前端自动检测更新
+function buildVersion() {
+  let v = 0;
+  for (const f of ['index.html', 'materials.mjs', 'server.mjs']) {
+    try { v = Math.max(v, fs.statSync(path.join(__dirname, f)).mtimeMs); } catch { /* 忽略 */ }
+  }
+  return Math.round(v);
 }
 
 // ── 路由 ──────────────────────────────────────────────────────
@@ -1194,10 +1218,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/md.js') {
       return serveStatic(res, 'md.js');
     }
+    if (req.method === 'GET' && url.pathname === '/api/version') {
+      return json(res, 200, { v: buildVersion() });
+    }
     if (req.method === 'GET' && url.pathname === '/api/stats') {
       return json(res, 200, {
         prompts: allPrompts().length,
-        materials: allMaterials().length,
+        materials: allMaterials().filter((m) => String(m.text || '').length >= 60).length,
         years: [...new Set(allPrompts().map((p) => p.year))].length,
       });
     }
