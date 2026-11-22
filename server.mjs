@@ -660,8 +660,13 @@ function themeGroupsOf(material) {
 }
 
 // ── 素材库 ────────────────────────────────────────────────────
+// 只收录符合"详版"标准的用户素材：3 句以上（≥80 字）且有出处。
+// 这样早年的一句话采集/生成不会混进列表，也不需要删除数据文件。
 function allMaterials() {
-  return [...MATERIALS, ...storeFor(currentUser()).materials];
+  const fresh = storeFor(currentUser()).materials.filter(
+    (m) => String(m.text || '').length >= 80 && String(m.source || '').trim(),
+  );
+  return [...MATERIALS, ...fresh];
 }
 
 // 按题目/文章内容匹配素材（主题命中加权 + 关键词命中）
