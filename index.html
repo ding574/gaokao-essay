@@ -116,6 +116,136 @@
     #toastHost{bottom:calc(78px + env(safe-area-inset-bottom))}
   }
   </style>
+<style>
+
+  /* ===== 精品化层 ===== */
+  body{
+    background:
+      radial-gradient(1200px 500px at 10% -10%, #e8f0ff 0%, transparent 60%),
+      radial-gradient(900px 400px at 100% 0%, #eafaf1 0%, transparent 55%),
+      linear-gradient(180deg,#f7f9ff 0%,#f4f6fb 100%);
+    background-attachment:fixed;
+  }
+  .app-header{
+    background:rgba(255,255,255,.82);
+    border-bottom:1px solid rgba(226,232,240,.8);
+    box-shadow:0 1px 0 rgba(15,23,42,.03),0 8px 30px rgba(15,23,42,.04);
+  }
+  .brand-mark{
+    background:linear-gradient(135deg,#1d4ed8,#0ea5e9 55%,#22c55e);
+    box-shadow:0 10px 24px rgba(37,99,235,.35), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .brand h1{letter-spacing:.3px}
+  .brand p{color:#7c879c}
+
+  /* Hero */
+  .hero{
+    position:relative;overflow:hidden;border-radius:24px;padding:26px 24px 24px;
+    background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 48%,#0ea5e9 100%);
+    color:#fff;box-shadow:0 24px 60px rgba(30,58,138,.28);
+    margin-bottom:16px;
+  }
+  .hero::after{
+    content:"";position:absolute;right:-60px;top:-80px;width:320px;height:320px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.35), transparent 60%);
+    pointer-events:none;
+  }
+  .hero::before{
+    content:"";position:absolute;left:-40px;bottom:-120px;width:260px;height:260px;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%, rgba(34,197,94,.35), transparent 60%);
+    pointer-events:none;
+  }
+  .hero-kicker{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;letter-spacing:.12em;
+    text-transform:uppercase;color:#bfdbfe;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.22);padding:5px 12px;border-radius:999px;
+  }
+  .hero-title{font-size:27px;line-height:1.35;margin:14px 0 8px;font-weight:700;letter-spacing:.3px}
+  .hero-sub{margin:0;color:#dbeafe;font-size:13.5px;line-height:1.7;max-width:640px}
+  .hero-stats{display:flex;gap:26px;margin:20px 0 18px;flex-wrap:wrap}
+  .hero-stats div{display:flex;flex-direction:column;gap:2px}
+  .hero-stats b{font-size:24px;font-weight:700;letter-spacing:.3px}
+  .hero-stats span{font-size:12px;color:#bfdbfe}
+  .hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .hero-btn{
+    appearance:none;border:0;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:600;
+    background:#fff;color:#1e3a8a;cursor:pointer;transition:.18s;
+    box-shadow:0 10px 24px rgba(15,23,42,.18);
+  }
+  .hero-btn:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(15,23,42,.24)}
+  .hero-btn.ghost{
+    background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.35);box-shadow:none;
+  }
+  .hero-btn.ghost:hover{background:rgba(255,255,255,.2)}
+
+  /* 卡片质感 */
+  .card{
+    border-radius:20px;border:1px solid #e8edf7;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 14px 34px rgba(15,23,42,.05);
+  }
+  .item{
+    border-radius:18px;border:1px solid #e8edf7;
+    box-shadow:0 1px 2px rgba(15,23,42,.03);
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .item:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(15,23,42,.1);border-color:#dbe4f3}
+
+  /* 标签配色 */
+  .tag{background:#eef2ff;color:#3730a3;border:1px solid #e0e7ff}
+  .meta .tag:nth-child(2){background:#ecfdf5;color:#047857;border-color:#d1fae5}
+  .meta .tag:nth-child(3){background:#fff7ed;color:#b45309;border-color:#ffedd5}
+  .meta .tag:nth-child(n+4){background:#f8fafc;color:#475569;border-color:#e2e8f0}
+
+  /* 按钮光泽 */
+  button.primary{
+    background:linear-gradient(135deg,#2563eb,#1d4ed8 60%,#1e40af);
+    box-shadow:0 10px 24px rgba(37,99,235,.28), inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  button.ghost{background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+
+  /* 切换动效 */
+  .wrap > section:not(.hidden){animation:fadeUp .28s cubic-bezier(.2,.7,.3,1)}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* 骨架屏 */
+  .sk{height:86px;border-radius:18px;border:1px solid #e8edf7;background:#fff;
+      background-image:linear-gradient(90deg,#f1f5f9 25%,#f8fafc 37%,#f1f5f9 63%);
+      background-size:400% 100%;animation:sk 1.3s ease infinite}
+  @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
+
+  /* 导航激活指示 */
+  .tabs button.on{box-shadow:0 10px 24px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.15)}
+  @media (max-width:720px){
+    .tabs button.on{background:linear-gradient(180deg,#eff6ff,#e0f2fe);color:#1d4ed8;box-shadow:none}
+    .hero{padding:20px 16px;border-radius:20px}
+    .hero-title{font-size:22px}
+    .hero-stats{gap:18px}
+    .hero-stats b{font-size:20px}
+  }
+
+</style>
+<style>
+/* 配图样式 */
+  .hero{position:relative;padding-right:300px}
+  .hero-art{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:330px;pointer-events:none}
+  .hero{padding-right:340px}
+  .hero-sub{max-width:520px}
+  .hero-art svg{width:100%;height:auto;filter:drop-shadow(0 18px 40px rgba(15,23,42,.25))}
+  @media (max-width:1000px){
+    .hero{padding-right:24px}
+    .hero-art{display:none}
+  }
+  .empty-art{display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 12px;color:#64748b;font-size:13px;text-align:center}
+  .empty-art svg{width:120px;height:auto;opacity:.95}
+
+</style>
+<style>
+  .p-ico,.m-ico{display:inline-flex;align-items:center;justify-content:center;color:#2563eb;vertical-align:-4px}
+  .p-ico{width:22px;height:22px;margin-right:8px;background:#eef4ff;border:1px solid #dbe7ff;border-radius:8px;padding:2px}
+  .p-ico svg{width:15px;height:15px}
+  .m-ico{width:22px;height:22px;margin-right:6px;color:#0ea5e9}
+  .m-ico svg{width:16px;height:16px}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -143,6 +273,88 @@
 
   <!-- 题库 -->
   <section id="tab-bank">
+    <div class="hero">
+      <div class="hero-kicker">高考作文 · AI 教练</div>
+      <h2 class="hero-title">把真题、解析、素材、批改<br>装进一个网站</h2>
+      <p class="hero-sub">2015–2026 真题逐字收录，按高考 60 分制评分，引用原文指出该改哪一句。</p>
+      <div class="hero-stats">
+        <div><b id="heroPrompts">55</b><span>道真题</span></div>
+        <div><b id="heroMaterials">65</b><span>条素材</span></div>
+        <div><b id="heroYears">13</b><span>个年份</span></div>
+      </div>
+      
+      <div class="hero-art" aria-hidden="true">
+        <svg viewBox="0 0 400 360" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="paper2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eaf2ff"/>
+            </linearGradient>
+            <linearGradient id="bar2" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#0ea5e9"/>
+            </linearGradient>
+            <linearGradient id="pen" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#cbd5e1"/>
+            </linearGradient>
+          </defs>
+          <circle cx="205" cy="180" r="150" fill="rgba(255,255,255,.09)"/>
+          <circle cx="205" cy="180" r="110" fill="rgba(255,255,255,.07)"/>
+
+          <!-- 书本 -->
+          <g transform="translate(18,268)">
+            <rect x="0" y="26" width="118" height="16" rx="7" fill="#0ea5e9" opacity=".9"/>
+            <rect x="6" y="10" width="112" height="16" rx="7" fill="#22c55e" opacity=".95"/>
+            <rect x="12" y="-6" width="104" height="16" rx="7" fill="#facc15" opacity=".95"/>
+          </g>
+
+          <!-- 试卷 -->
+          <g transform="rotate(-6 210 180)">
+            <rect x="112" y="56" width="196" height="246" rx="18" fill="url(#paper2)" opacity=".98"/>
+            <rect x="112" y="56" width="196" height="15" rx="7.5" fill="url(#bar2)"/>
+            <rect x="134" y="96" width="86" height="9" rx="4.5" fill="#cbd5e1"/>
+            <rect x="134" y="118" width="152" height="8" rx="4" fill="#e2e8f0"/>
+            <rect x="134" y="138" width="136" height="8" rx="4" fill="#e2e8f0"/>
+            <rect x="134" y="158" width="146" height="8" rx="4" fill="#e2e8f0"/>
+            <rect x="134" y="178" width="118" height="8" rx="4" fill="#e2e8f0"/>
+            <path d="M150 206 L192 248 M192 206 L150 248" stroke="#ef4444" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+            <rect x="134" y="262" width="92" height="7" rx="3.5" fill="#fecaca"/>
+            <path d="M212 232 l13 15 l26 -32" stroke="#22c55e" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+
+          <!-- 笔 -->
+          <g transform="rotate(28 300 210)">
+            <rect x="286" y="150" width="12" height="112" rx="6" fill="url(#pen)"/>
+            <path d="M286 262 l6 16 l6 -16 z" fill="#0f172a"/>
+            <rect x="286" y="150" width="12" height="14" rx="6" fill="#2563eb"/>
+          </g>
+
+          <!-- AI 气泡 -->
+          <g transform="translate(258,34)">
+            <rect x="0" y="0" width="104" height="66" rx="18" fill="#ffffff" opacity=".97"/>
+            <path d="M22 66 l0 18 l18 -18 z" fill="#ffffff" opacity=".97"/>
+            <text x="52" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#1e3a8a">AI</text>
+            <text x="52" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">批改中</text>
+          </g>
+
+          <!-- 分数 -->
+          <circle cx="330" cy="266" r="40" fill="#facc15"/>
+          <text x="330" y="261" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#0f172a">58</text>
+          <text x="330" y="284" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#0f172a">/ 60</text>
+
+          <!-- 装饰 -->
+          <g fill="#fde68a">
+            <circle cx="52" cy="92" r="3"/><circle cx="372" cy="140" r="3"/><circle cx="44" cy="196" r="2.5"/>
+          </g>
+          <g stroke="#bfdbfe" stroke-width="2" stroke-linecap="round" opacity=".85">
+            <path d="M340 96 h14 M347 89 v14"/>
+            <path d="M96 40 h12 M102 34 v12"/>
+          </g>
+        </svg>
+      </div>
+      <div class="hero-actions">
+        <button class="hero-btn" id="heroGoBank">先看真题</button>
+        <button class="hero-btn ghost" id="heroGoAssistant">去批改作文</button>
+      </div>
+    </div>
     <div class="card">
       <div class="row">
         <input id="q" placeholder="搜索题目 / 主题" style="flex:1;min-width:160px">
@@ -388,6 +600,9 @@ function switchTab(name) {
   }
 }
 
+$('heroGoBank').addEventListener('click', () => switchTab('bank'));
+$('heroGoAssistant').addEventListener('click', () => switchTab('assistant'));
+
 document.querySelectorAll('nav button').forEach((b) => {
   b.addEventListener('click', () => switchTab(b.dataset.tab));
 });
@@ -396,15 +611,55 @@ document.querySelectorAll('nav button').forEach((b) => {
 async function loadStats() {
   try {
     const s = await api('/api/stats');
+    $('heroPrompts').textContent = s.prompts;
+    $('heroMaterials').textContent = s.materials;
+    $('heroYears').textContent = s.years;
     $('stats').innerHTML = `题库 <b>${s.prompts}</b> 题 · 素材 <b>${s.materials}</b> 条${s.mineCount ? `（我的 +${s.mineCount}）` : ''}${s.legacyCount ? `（旧版 ${s.legacyCount}）` : ''} · 覆盖 <b>${s.years}</b> 个年份`;
   } catch (e) { /* 忽略 */ }
+}
+
+
+const ICON = {
+  person: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>',
+  chip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>',
+  scroll: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>',
+  leaf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20c8 0 16-5 16-16-8 0-16 5-16 16z"/><path d="M4 20c0-6 4-10 10-12"/></svg>',
+  sprout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21v-8"/><path d="M12 13c0-4 3-7 7-7 0 4-3 7-7 7z"/><path d="M12 13c0-4-3-7-7-7 0 4 3 7 7 7z"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 21V4"/><path d="M5 4h12l-2 4 2 4H5"/></svg>',
+  scale: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18M6 21h12"/><path d="M4 8l4 6H0zM20 8l4 6h-8z" transform="translate(0,-1)"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12a8 8 0 1 1-3.2-6.4L21 4l-1.2 4.4A8 8 0 0 1 21 12z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M8 7h8M8 11h6"/></svg>',
+  quote: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 7h4v6c0 2.5-1.5 4-4 4"/><path d="M15 7h4v6c0 2.5-1.5 4-4 4"/></svg>'
+};
+
+function themeIcon(p) {
+  const t = (p.themes || []).join(' ');
+  if (/科技|技术|前沿|创新/.test(t)) return ICON.chip;
+  if (/传统|文化|经典|传承|非遗/.test(t)) return ICON.scroll;
+  if (/生态|环境|自然|长远/.test(t)) return ICON.leaf;
+  if (/成长|奋斗|坚持|积累|逆境/.test(t)) return ICON.sprout;
+  if (/家国|责任|担当|奉献|使命/.test(t)) return ICON.flag;
+  if (/思辨|理性|选择|价值|争议/.test(t)) return ICON.scale;
+  if (/名言|经典/.test(t)) return ICON.quote;
+  if (/青年|时代|社会/.test(t)) return ICON.chat;
+  return ICON.book;
+}
+
+function catIcon(c) {
+  if (c === '人物') return ICON.person;
+  if (c === '科技') return ICON.chip;
+  if (c === '文化') return ICON.scroll;
+  if (c === '生态') return ICON.leaf;
+  if (c === '成长') return ICON.sprout;
+  if (c === '名言') return ICON.quote;
+  return ICON.chat;
 }
 
 function promptCard(p) {
   const div = document.createElement('div');
   div.className = 'item';
   div.innerHTML = `
-    <h3>${esc(p.title)}</h3>
+    <h3><span class="p-ico">${themeIcon(p)}</span>${esc(p.title)}</h3>
     <div class="meta"><span>${esc(p.year)}</span><span>${esc(p.region || '')}</span><span>${esc(p.type || '')}</span><span class="tag">${p.verbatim ? '原文' : (p.sim ? '模拟' : '摘要')}</span></div>
     <div class="material">${esc(p.material)}</div>
     <div class="meta">${(p.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
@@ -417,12 +672,16 @@ function promptCard(p) {
   return div;
 }
 
+function skel(n) {
+  return Array.from({ length: n }).map(() => '<div class="sk"></div>').join('');
+}
+
 async function loadPrompts() {
   const q = encodeURIComponent($('q').value.trim());
   const year = encodeURIComponent($('yearFilter').value);
   const data = await api(`/api/prompts?q=${q}&year=${year}`);
   state.prompts = data.prompts;
-  const list = $('promptList');
+  const list = $('promptList'); list.innerHTML = skel(4);
   list.innerHTML = '';
   data.prompts.forEach((p) => list.appendChild(promptCard(p)));
   if (!data.prompts.length) list.innerHTML = '<p class="hint">没有找到，换个关键词试试。</p>';
@@ -494,7 +753,7 @@ async function doAnalyze() {
         mats
           .map(
             (m) =>
-              `<div class="item" style="margin-top:8px"><div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div><div class="material">${esc(m.text)}</div></div>`,
+              `<div class="item" style="margin-top:8px"><div class="meta"><span class="m-ico">${catIcon(m.category)}</span><span class="tag">${esc(m.category)}</span>${(m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div><div class="material">${esc(m.text)}</div></div>`,
           )
           .join('');
       $('analysisResult').appendChild(box);
@@ -539,7 +798,7 @@ async function loadMaterials() {
   if (!data.materials.length) {
     list.innerHTML = data.legacyCount
       ? '<p class="hint">没有符合详版标准的素材，点「显示旧版」可以查看全部（不会丢失）。</p>'
-      : '<p class="hint">没有素材，换个分类或关键词。</p>';
+      : "<div class=\"empty-art\">\n<svg viewBox=\"0 0 160 120\" xmlns=\"http://www.w3.org/2000/svg\">\n  <rect x=\"34\" y=\"22\" width=\"92\" height=\"74\" rx=\"10\" fill=\"#eef4ff\" stroke=\"#c7d7f5\"/>\n  <rect x=\"46\" y=\"38\" width=\"52\" height=\"6\" rx=\"3\" fill=\"#c7d7f5\"/>\n  <rect x=\"46\" y=\"52\" width=\"66\" height=\"6\" rx=\"3\" fill=\"#dbe6fb\"/>\n  <rect x=\"46\" y=\"66\" width=\"40\" height=\"6\" rx=\"3\" fill=\"#dbe6fb\"/>\n  <circle cx=\"112\" cy=\"82\" r=\"14\" fill=\"#dcfce7\"/>\n  <path d=\"M106 82 l4 5 l8 -10\" stroke=\"#22c55e\" stroke-width=\"3\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<div>还没有素材，换个分类或关键词试试</div>\n</div>";
   }
 }
 
