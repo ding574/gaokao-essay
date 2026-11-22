@@ -13,7 +13,7 @@
     --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   }
   *{box-sizing:border-box}
-  [hidden]{display:none!important}
+  [hidden],.hidden{display:none!important}
   html,body{margin:0}
   body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1000px;margin:0 auto;padding:0 0 96px}
@@ -229,6 +229,8 @@
         <button class="ghost" id="btnMsearch">搜索</button>
         <button class="primary" id="btnMgen">生成 5 条新素材</button>
         <button class="ghost" id="btnCollect">从网络采集素材</button>
+        <button class="ghost" id="btnLegacy">显示旧版素材</button>
+        <button class="ghost" id="btnExport">导出我的数据</button>
       </div>
     </div>
     <div class="list" id="materialList"></div>
@@ -295,6 +297,7 @@ import { mdToHtml } from './md.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { prompts: [], materials: [], current: null };
+let legacyMode = false;
 let lastMaterialCount = 0;
 
 async function refreshMaterials() {
@@ -393,7 +396,7 @@ document.querySelectorAll('nav button').forEach((b) => {
 async function loadStats() {
   try {
     const s = await api('/api/stats');
-    $('stats').innerHTML = `题库 <b>${s.prompts}</b> 题 · 素材 <b>${s.materials}</b> 条 · 覆盖 <b>${s.years}</b> 个年份`;
+    $('stats').innerHTML = `题库 <b>${s.prompts}</b> 题 · 素材 <b>${s.materials}</b> 条${s.mineCount ? `（我的 +${s.mineCount}）` : ''}${s.legacyCount ? `（旧版 ${s.legacyCount}）` : ''} · 覆盖 <b>${s.years}</b> 个年份`;
   } catch (e) { /* 忽略 */ }
 }
 
@@ -510,16 +513,20 @@ async function loadMaterials() {
   const q = encodeURIComponent($('mq').value.trim());
   const cat = encodeURIComponent($('category').value);
   const theme = encodeURIComponent($('themeFilter').value);
-  const data = await api(`/api/materials?q=${q}&category=${cat}&theme=${theme}`);
+  const data = await api(`/api/materials?q=${q}&category=${cat}&theme=${theme}${legacyMode ? '&legacy=1' : ''}`);
   state.materials = data.materials;
   lastMaterialCount = data.total;
+  if (data.legacyCount) {
+    $('btnLegacy').textContent = legacyMode ? '只看详版' : `显示旧版（${data.legacyCount}）`;
+    $('btnLegacy').hidden = false;
+  }
   const list = $('materialList');
   list.innerHTML = '';
   data.materials.forEach((m) => {
     const div = document.createElement('div');
     div.className = 'item';
     div.innerHTML = `
-      <div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themeGroups || m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}${m.fromWeb ? '<span class="tag">网络</span>' : ''}</div>
+      <div class="meta"><span class="tag">${esc(m.category)}</span>${(m.themeGroups || m.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}${m.fromWeb ? '<span class="tag">网络</span>' : ''}${m.legacy ? '<span class="tag" style="background:#fef3c7;color:#92400e">旧版</span>' : ''}</div>
       <div class="material">${esc(m.text)}</div>
       ${m.source ? ( /^https?:\/\//.test(m.source)
         ? `<p class="hint">来源：<a href="${esc(m.source)}" target="_blank" rel="noreferrer">${esc(m.source.slice(0, 60))}</a></p>`
@@ -529,7 +536,11 @@ async function loadMaterials() {
     div.querySelector('button').addEventListener('click', () => copyText(m.text));
     list.appendChild(div);
   });
-  if (!data.materials.length) list.innerHTML = '<p class="hint">没有素材，换个分类或关键词。</p>';
+  if (!data.materials.length) {
+    list.innerHTML = data.legacyCount
+      ? '<p class="hint">没有符合详版标准的素材，点「显示旧版」可以查看全部（不会丢失）。</p>'
+      : '<p class="hint">没有素材，换个分类或关键词。</p>';
+  }
 }
 
 async function genMaterials() {
@@ -715,6 +726,29 @@ async function loadThemes() {
 
 $('category').addEventListener('change', loadMaterials);
 $('themeFilter').addEventListener('change', loadMaterials);
+
+$('btnLegacy').addEventListener('click', () => {
+  legacyMode = !legacyMode;
+  $('btnLegacy').textContent = legacyMode ? '只看详版' : '显示旧版素材';
+  loadMaterials();
+});
+
+$('btnExport').addEventListener('click', async () => {
+  try {
+    const data = await api('/api/export');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '我的作文数据-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    toast('已导出我的数据');
+  } catch (e) {
+    toast('导出失败：' + e.message, 'error');
+  }
+});
 $('btnMgen').addEventListener('click', genMaterials);
 $('btnCollect').addEventListener('click', async () => {
   const btn = $('btnCollect');
