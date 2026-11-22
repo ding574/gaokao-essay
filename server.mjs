@@ -46,10 +46,7 @@ const lastCollectMap = new Map();
 function storeFor(user) {
   const key = safeName(user);
   if (!storeCache.has(key)) {
-    let s = { prompts: [], materials: [] };
-    try {
-      s = JSON.parse(fs.readFileSync(path.join(STORE_DIR, key + '.json'), 'utf8'));
-    } catch { /* 新用户 */ }
+    const s = readJsonSafe(path.join(STORE_DIR, key + '.json'), { prompts: [], materials: [] });
     if (!Array.isArray(s.prompts)) s.prompts = [];
     if (!Array.isArray(s.materials)) s.materials = [];
     storeCache.set(key, s);
@@ -57,13 +54,56 @@ function storeFor(user) {
   return storeCache.get(key);
 }
 
+// ── 安全持久化：原子写入 + 自动备份 + 损坏自愈 ──
+function jsonBackupPath(file, n = 1) {
+  return file.replace(/\.json$/, n === 1 ? '.bak.json' : '.bak2.json');
+}
+
+function readJsonSafe(file, fallback) {
+  for (const [i, f] of [file, jsonBackupPath(file, 1), jsonBackupPath(file, 2)].entries()) {
+    try {
+      const raw = fs.readFileSync(f, 'utf8');
+      if (!raw.trim()) continue;
+      const data = JSON.parse(raw);
+      // 用备份恢复时，顺手把主文件修好，避免下次写入把坏文件覆盖到备份
+      if (i > 0) {
+        try { fs.copyFileSync(f, file); } catch { /* 忽略 */ }
+      }
+      return data;
+    } catch { /* 尝试下一份 */ }
+  }
+  return fallback;
+}
+
+function writeJsonSafe(file, data) {
+  const dir = path.dirname(file);
+  fs.mkdirSync(dir, { recursive: true });
+  const text = JSON.stringify(data, null, 2);
+  const tmp = file + '.tmp-' + process.pid + '-' + Date.now();
+  const fd = fs.openSync(tmp, 'w');
+  try {
+    fs.writeSync(fd, text);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  // 两代备份：当前 → .bak，原 .bak → .bak2
+  if (fs.existsSync(file)) {
+    try {
+      if (fs.existsSync(jsonBackupPath(file, 1))) {
+        fs.copyFileSync(jsonBackupPath(file, 1), jsonBackupPath(file, 2));
+      }
+      fs.copyFileSync(file, jsonBackupPath(file, 1));
+    } catch { /* 忽略 */ }
+  }
+  fs.renameSync(tmp, file);
+}
+
 function saveStore() {
   try {
     const key = safeName(currentUser());
     fs.mkdirSync(STORE_DIR, { recursive: true });
-    const file = path.join(STORE_DIR, key + '.json');
-    if (fs.existsSync(file)) fs.copyFileSync(file, file.replace(/\.json$/, '.bak.json'));
-    fs.writeFileSync(file, JSON.stringify(storeFor(currentUser()), null, 2), 'utf8');
+    writeJsonSafe(path.join(STORE_DIR, key + '.json'), storeFor(currentUser()));
   } catch (err) {
     console.error('[store] 写入失败', err.message);
   }
@@ -664,6 +704,10 @@ function themeGroupsOf(material) {
 // 并且只显示 2026-11-22 之后新采集/生成的（旧的"一句话素材"自动隐藏，不删数据）。
 const LEGACY_CUTOFF = Date.parse(process.env.LEGACY_CUTOFF || '2026-11-22T00:00:00+08:00');
 
+function rawMaterials() {
+  return [...MATERIALS, ...storeFor(currentUser()).materials];
+}
+
 function allMaterials() {
   const fresh = storeFor(currentUser()).materials.filter((m) => {
     if (String(m.text || '').length < 80) return false;
@@ -694,13 +738,20 @@ function handleMaterials(url, res) {
   const q = (url.searchParams.get('q') || '').trim();
   const category = (url.searchParams.get('category') || '').trim();
   const theme = (url.searchParams.get('theme') || '').trim();
-  // 隐藏历史遗留的一句话素材（长度 < 60 字）
-  let list = allMaterials().filter((m) => String(m.text || '').length >= 60);
+  const includeLegacy = url.searchParams.get('legacy') === '1';
+
+  const detailed = allMaterials();
+  const detailedIds = new Set(detailed.map((m) => m.id));
+  let list = includeLegacy
+    ? rawMaterials().map((m) => (detailedIds.has(m.id) ? m : { ...m, legacy: true }))
+    : detailed;
+
   if (category) list = list.filter((m) => m.category === category);
   if (theme) list = list.filter((m) => themeGroupsOf(m).includes(theme));
   if (q) list = list.filter((m) => (m.text + (m.themes || []).join('')).includes(q));
   return json(res, 200, {
     total: list.length,
+    legacyCount: Math.max(0, rawMaterials().length - detailed.length),
     materials: list.map((m) => ({ ...m, themeGroups: themeGroupsOf(m) })),
     updatedAt: lastCollectAtOf(),
   });
@@ -885,12 +936,13 @@ if (!SECRET) {
 }
 
 function loadUsers() {
-  try { return JSON.parse(fs.readFileSync(USERS_PATH, 'utf8')); } catch { return []; }
+  const list = readJsonSafe(USERS_PATH, []);
+  return Array.isArray(list) ? list : [];
 }
 function saveUsers(list) {
   try {
     fs.mkdirSync(path.dirname(USERS_PATH), { recursive: true });
-    fs.writeFileSync(USERS_PATH, JSON.stringify(list, null, 2), 'utf8');
+    writeJsonSafe(USERS_PATH, list);
   } catch (err) { console.error('[users]', err.message); }
 }
 function hashPass(pass, salt) {
@@ -933,20 +985,14 @@ function memoryFile(user) {
   return path.join(__dirname, 'data', 'memory', safe + '.json');
 }
 function loadMemory(user) {
-  try {
-    const m = JSON.parse(fs.readFileSync(memoryFile(user), 'utf8'));
-    if (!m.prefs) m.prefs = {};
-    if (!Array.isArray(m.notes)) m.notes = [];
-    return m;
-  } catch {
-    return { prefs: {}, notes: [] };
-  }
+  const m = readJsonSafe(memoryFile(user), { prefs: {}, notes: [] });
+  if (!m.prefs) m.prefs = {};
+  if (!Array.isArray(m.notes)) m.notes = [];
+  return m;
 }
 function saveMemory(user, memory) {
   try {
-    const file = memoryFile(user);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(memory, null, 2), 'utf8');
+    writeJsonSafe(memoryFile(user), memory);
   } catch (err) { console.error('[memory]', err.message); }
 }
 
@@ -1231,10 +1277,28 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/version') {
       return json(res, 200, { v: buildVersion() });
     }
+    if (req.method === 'GET' && url.pathname === '/api/export') {
+      const user = requireUser(req, res);
+      if (!user) return;
+      const store = storeFor(user);
+      return json(res, 200, {
+        user,
+        exportedAt: new Date().toISOString(),
+        prompts: store.prompts,
+        materials: store.materials,
+        memory: loadMemory(user),
+      });
+    }
     if (req.method === 'GET' && url.pathname === '/api/stats') {
+      const list = allMaterials();
+      const raw = rawMaterials();
+      const base = MATERIALS.length;
       return json(res, 200, {
         prompts: allPrompts().length,
-        materials: allMaterials().filter((m) => String(m.text || '').length >= 60).length,
+        materials: list.length,
+        baseMaterials: base,
+        mineCount: Math.max(0, list.length - base),
+        legacyCount: Math.max(0, raw.length - list.length),
         years: [...new Set(allPrompts().map((p) => p.year))].length,
       });
     }
