@@ -660,12 +660,17 @@ function themeGroupsOf(material) {
 }
 
 // ── 素材库 ────────────────────────────────────────────────────
-// 只收录符合"详版"标准的用户素材：3 句以上（≥80 字）且有出处。
-// 这样早年的一句话采集/生成不会混进列表，也不需要删除数据文件。
+// 只收录符合"详版"标准的用户素材：3 句以上（≥80 字）且有出处；
+// 并且只显示 2026-11-22 之后新采集/生成的（旧的"一句话素材"自动隐藏，不删数据）。
+const LEGACY_CUTOFF = Date.parse(process.env.LEGACY_CUTOFF || '2026-11-22T00:00:00+08:00');
+
 function allMaterials() {
-  const fresh = storeFor(currentUser()).materials.filter(
-    (m) => String(m.text || '').length >= 80 && String(m.source || '').trim(),
-  );
+  const fresh = storeFor(currentUser()).materials.filter((m) => {
+    if (String(m.text || '').length < 80) return false;
+    if (!String(m.source || '').trim()) return false;
+    const t = Date.parse(m.createdAt || '');
+    return !Number.isFinite(t) || t >= LEGACY_CUTOFF;
+  });
   return [...MATERIALS, ...fresh];
 }
 
